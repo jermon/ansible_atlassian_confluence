@@ -2,7 +2,7 @@
 # tasks file for atlassian-confluence
 
 - name: install requirements
-  apt: name={{ item }} state=present
+  yum: name={{ item }} state=present
   with_items:
     - python-lxml
   tags:
@@ -17,12 +17,24 @@
     - atlassian-confluence
 
 - name: create application group
-  group: name={{ atlassian_confluence_group }} system=no gid={{ atlassian_confluence_gid }} state=present 
+  group: 
+    name: "{{ atlassian_confluence_group }}"
+    system: no 
+    gid: "{{ atlassian_confluence_gid }}"
+    state: present 
   tags:
     - atlassian-confluence
 
-- name: create user
-  user: name="{{ atlassian_confluence_user }}" system=no createhome=no comment="Atlassian Confluence" group={{ atlassian_confluence_group }} home=/nonexistant shell=/bin/false state=present
+- name: create Confluence user
+  user: 
+    name: "{{ atlassian_confluence_user }}" 
+    system: no 
+    createhome: no 
+    comment: "Atlassian Confluence" 
+    group: "{{ atlassian_confluence_group }}"
+    home: "{{ atlassian_confluence_home }}" 
+    shell: /bin/bash
+    state: present
   tags:
     - atlassian-confluence
 
@@ -123,12 +135,38 @@
   tags:
     - atlassian-confluence
 
+- name: chown and touch files
+  file:
+    path:  "{{ item }}" 
+    owner: "{{ atlassian_confluence_user }}" 
+    group: "{{ atlassian_confluence_group }}" 
+    recurse: yes
+    state: directory
+  with_items:
+    - "{{ atlassian_confluence_dir }}"
+    - "{{ atlassian_confluence_home }}"
+    
 - name: create template startup sctipts
   template:
     src: "{{ item }}"
     dest: "{{ atlassian_confluence_dir }}/{{ item }}"
   with_items:
-    - startup-init.d
     - startup-supervisord
   tags:
     - atlassian-confluence
+    
+- name: create template startup sctipts
+  template:
+    src: "{{ item }}"
+    dest: "/etc/init.d/confluence"
+    mode: 0755
+  with_items:
+    - startup-init.d
+  tags:
+    - atlassian-confluence
+    
+- name: Start the Confluence service
+  service:
+    name: confluence
+    state: started
+    enabled: yes    
